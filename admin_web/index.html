@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Car Wash - Partner Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+  <!-- Auth Screen -->
+  <div id="auth-screen" class="screen active glass-bg">
+    <div class="auth-card glass-panel">
+      <div class="logo">
+        <span class="icon">💧</span>
+        <h1>Partner Portal</h1>
+      </div>
+      <p class="subtitle">Manage your Car Wash center and bookings</p>
+
+      <form id="auth-form">
+        <div class="input-group">
+          <label>Email Address</label>
+          <input type="email" id="auth-email" required placeholder="partner@carwash.com">
+        </div>
+        <div class="input-group">
+          <label>Password</label>
+          <input type="password" id="auth-password" required placeholder="••••••••">
+        </div>
+        <p id="auth-error" class="error-text hidden"></p>
+        <button type="submit" class="btn primary-btn w-100" id="auth-submit">Sign In</button>
+      </form>
+
+      <div class="auth-toggle">
+        <span id="auth-mode-text">Don't have an account?</span>
+        <button type="button" class="btn text-btn" id="auth-toggle-btn">Sign Up</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Screen -->
+  <div id="dashboard-screen" class="screen hidden default-bg">
+    <!-- Sidebar Navigation -->
+    <nav class="sidebar glass-panel">
+      <div class="logo">
+        <span class="icon">✨</span>
+        <h2>Admin</h2>
+      </div>
+      <ul class="nav-links">
+        <li><button class="nav-btn active" data-tab="centers"><span class="nav-icon">🏪</span> My Centers</button></li>
+        <li><button class="nav-btn" data-tab="bookings"><span class="nav-icon">🗓️</span> Bookings</button></li>
+      </ul>
+      <div class="sidebar-footer">
+        <p id="user-email" class="user-email"></p>
+        <button id="logout-btn" class="btn text-btn error-text">Logout</button>
+      </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Centers Tab -->
+      <section id="tab-centers" class="tab-content active">
+        <header class="section-header">
+          <div>
+            <h1 class="gradient-text">My Centers</h1>
+            <p class="subtitle">Manage your car wash listings</p>
+          </div>
+          <button id="add-center-btn" class="btn primary-btn"><span class="icon">+</span> Add Center</button>
+        </header>
+
+        <div class="grid-container" id="centers-grid">
+          <div class="loading-spinner"></div>
+        </div>
+      </section>
+
+      <!-- Bookings Tab -->
+      <section id="tab-bookings" class="tab-content hidden">
+        <header class="section-header">
+          <div>
+            <h1 class="gradient-text">Recent Bookings</h1>
+            <p class="subtitle">Track your upcoming appointments</p>
+          </div>
+        </header>
+
+        <div class="bookings-list" id="bookings-list">
+          <div class="loading-spinner"></div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Add Center Modal (Hidden by default) -->
+    <div id="add-center-modal" class="modal-overlay hidden">
+      <div class="modal glass-panel">
+        <div class="modal-header">
+          <h3>Add New Car Wash</h3>
+          <button type="button" class="close-btn" id="close-modal-btn">✕</button>
+        </div>
+        <form id="add-center-form" class="modal-body">
+          <div class="form-row">
+            <div class="input-group">
+              <label>Center Name</label>
+              <input type="text" id="center-name" required placeholder="e.g. SparkleWash">
+            </div>
+            <div class="input-group">
+              <label>Image URL</label>
+              <input type="url" id="center-image" required placeholder="https://...">
+            </div>
+          </div>
+          <div class="input-group">
+            <label>Description</label>
+            <textarea id="center-desc" required rows="2" placeholder="Tell customers about your center..."></textarea>
+          </div>
+          <div class="input-group">
+            <label>Address</label>
+            <input type="text" id="center-address" required placeholder="123 Wash Street">
+          </div>
+          <div class="input-group">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label>Location Coordinates</label>
+              <button type="button" id="get-location-btn" class="btn text-btn"
+                style="padding: 0; font-size: 11px; font-weight: 500;"><span style="margin-right:4px;">📍</span> Use My
+                Location</button>
+            </div>
+            <div class="form-row" style="margin-top: 4px;">
+              <input type="number" step="any" id="center-lat" required placeholder="Lat (19.03)" style="flex: 1;">
+              <input type="number" step="any" id="center-lng" required placeholder="Lng (73.10)" style="flex: 1;">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="input-group">
+              <label>Phone</label>
+              <input type="text" id="center-phone" required placeholder="+91 9876543210">
+            </div>
+            <div class="form-row">
+              <div class="input-group">
+                <label>Open Time</label>
+                <input type="time" id="center-open" required value="08:00">
+              </div>
+              <div class="input-group">
+                <label>Close Time</label>
+                <input type="time" id="center-close" required value="20:00">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <p id="modal-error" class="error-text hidden"></p>
+              <button type="button" class="btn text-btn" id="cancel-modal-btn">Cancel</button>
+              <button type="submit" class="btn primary-btn" id="save-center-btn">Save Center</button>
+            </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
