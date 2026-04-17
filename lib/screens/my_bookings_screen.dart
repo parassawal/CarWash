@@ -41,20 +41,62 @@ class MyBookingsScreen extends StatelessWidget {
             ],
           ),
         ),
-        body: TabBarView(
+        body: Column(
           children: [
-            _buildBookingList(
-              provider.upcomingBookings,
-              provider,
-              isUpcoming: true,
-            ),
-            _buildBookingList(
-              provider.pastBookings,
-              provider,
-              isUpcoming: false,
+            // Notification banners
+            if (provider.notifications.isNotEmpty)
+              _buildNotificationBanner(provider),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildBookingList(
+                    provider.upcomingBookings,
+                    provider,
+                    isUpcoming: true,
+                  ),
+                  _buildBookingList(
+                    provider.pastBookings,
+                    provider,
+                    isUpcoming: false,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationBanner(AppProvider provider) {
+    final notif = provider.notifications.first;
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.success.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.success.withOpacity(0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle, color: AppColors.success, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              notif['message'] ?? 'Your booking has been accepted! 🎉',
+              style: const TextStyle(
+                color: AppColors.success,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => provider.markNotificationRead(notif['id']),
+            child: const Icon(Icons.close, color: AppColors.success, size: 16),
+          ),
+        ],
       ),
     );
   }
@@ -94,7 +136,6 @@ class MyBookingsScreen extends StatelessWidget {
         ),
       );
     }
-
     return ListView.builder(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.all(16),
@@ -199,8 +240,8 @@ class MyBookingsScreen extends StatelessWidget {
               ],
             ),
           ),
-          // Actions for upcoming
-          if (isUpcoming) ...[
+          // Actions for upcoming confirmed bookings only
+          if (isUpcoming && booking.status == BookingStatus.confirmed) ...[
             Container(
               height: 0.5,
               margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -230,6 +271,33 @@ class MyBookingsScreen extends StatelessWidget {
               ),
             ),
           ],
+          // Pending info row
+          if (isUpcoming && booking.status == BookingStatus.pending)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.warning.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.warning.withOpacity(0.3)),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.hourglass_top, size: 14, color: AppColors.warning),
+                    SizedBox(width: 6),
+                    Text(
+                      'Waiting for admin approval',
+                      style: TextStyle(
+                        color: AppColors.warning,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -253,6 +321,9 @@ class MyBookingsScreen extends StatelessWidget {
     Color color;
     String label;
     switch (status) {
+      case BookingStatus.pending:
+        color = AppColors.warning;
+        label = 'Pending';
       case BookingStatus.confirmed:
         color = AppColors.success;
         label = 'Confirmed';

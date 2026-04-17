@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/car_wash_center.dart';
 import '../theme/app_colors.dart';
+import 'package:provider/provider.dart';
+import '../providers/app_provider.dart';
 
 class CenterCard extends StatelessWidget {
   final CarWashCenter center;
@@ -103,7 +105,7 @@ class CenterCard extends StatelessWidget {
                 // Distance
                 Positioned(
                   top: 10,
-                  right: 10,
+                  right: 45, // Shifted to make room for Favorite Button
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -151,6 +153,30 @@ class CenterCard extends StatelessWidget {
                         const Icon(Icons.star, size: 11, color: Colors.white),
                       ],
                     ),
+                  ),
+                ),
+                // Favorite Button
+                Positioned(
+                  top: 5,
+                  right: 5,
+                  child: Consumer<AppProvider>(
+                    builder: (context, provider, child) {
+                      final isFav = provider.isFavorite(center.id);
+                      return IconButton(
+                        icon: Icon(
+                          isFav ? Icons.favorite : Icons.favorite_outline,
+                          color: isFav ? AppColors.error : Colors.white,
+                          size: 22,
+                        ),
+                        onPressed: () => provider.toggleFavorite(center.id),
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.black.withOpacity(0.3),
+                          padding: const EdgeInsets.all(6),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      );
+                    },
                   ),
                 ),
               ],

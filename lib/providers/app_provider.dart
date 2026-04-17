@@ -5,13 +5,17 @@ import '../models/booking.dart';
 import '../models/review.dart';
 import '../services/firestore_service.dart';
 import '../services/location_service.dart';
+import '../services/auth_service.dart';
 
 class AppProvider extends ChangeNotifier {
   final FirestoreService _firestore = FirestoreService();
   final LocationService locationService = LocationService();
+  AuthService? authService;
 
   List<CarWashCenter> _centers = [];
   List<Booking> _bookings = [];
+  List<String> _favoriteIds = [];
+  List<Map<String, dynamic>> _notifications = [];
   String _searchQuery = '';
   String _selectedCategory = 'All';
   bool _isLoading = true;
@@ -20,6 +24,8 @@ class AppProvider extends ChangeNotifier {
 
   StreamSubscription? _centersSub;
   StreamSubscription? _bookingsSub;
+  StreamSubscription? _favoritesSub;
+  StreamSubscription? _notificationsSub;
 
   bool get isSeedingData => _isSeedingData;
 
@@ -82,17 +88,38 @@ class AppProvider extends ChangeNotifier {
 
   List<Booking> get bookings => _bookings;
   List<Booking> get upcomingBookings =>
-      _bookings.where((b) => b.status == BookingStatus.confirmed).toList();
+      _bookings.where((b) => b.status == BookingStatus.confirmed || b.status == BookingStatus.pending).toList();
   List<Booking> get pastBookings =>
-      _bookings.where((b) => b.status != BookingStatus.confirmed).toList();
+      _bookings.where((b) => b.status == BookingStatus.completed || b.status == BookingStatus.cancelled).toList();
+  List<String> get favoriteIds => _favoriteIds;
+  List<CarWashCenter> get favoriteCenters =>
+      centers.where((c) => _favoriteIds.contains(c.id)).toList();
+  List<Map<String, dynamic>> get notifications => _notifications;
+  int get unreadNotificationCount => _notifications.length;
   String get searchQuery => _searchQuery;
   String get selectedCategory => _selectedCategory;
   bool get isLoading => _isLoading;
+
+  bool isFavorite(String centerId) => _favoriteIds.contains(centerId);
+
+  Future<void> toggleFavorite(String centerId) async {
+    if (_userId == null) return;
+    final isFav = !isFavorite(centerId);
+    if (isFav) {
+      _favoriteIds.add(centerId);
+    } else {
+      _favoriteIds.remove(centerId);
+    }
+    notifyListeners();
+    await _firestore.toggleFavorite(_userId!, centerId, isFav);
+  }
 
   void init(String userId) {
     _userId = userId;
     _loadCenters();
     _loadBookings();
+    _loadFavorites();
+    _loadNotifications();
     _fetchLocation();
   }
 
@@ -121,6 +148,24 @@ class AppProvider extends ChangeNotifier {
     _bookingsSub?.cancel();
     _bookingsSub = _firestore.getBookings(_userId!).listen((bookings) {
       _bookings = bookings;
+      notifyListeners();
+    });
+  }
+
+  void _loadFavorites() {
+    if (_userId == null) return;
+    _favoritesSub?.cancel();
+    _favoritesSub = _firestore.getFavorites(_userId!).listen((favorites) {
+      _favoriteIds = favorites;
+      notifyListeners();
+    });
+  }
+
+  void _loadNotifications() {
+    if (_userId == null) return;
+    _notificationsSub?.cancel();
+    _notificationsSub = _firestore.getNotifications(_userId!).listen((notifs) {
+      _notifications = notifs;
       notifyListeners();
     });
   }
@@ -168,12 +213,27 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> addBooking(Booking booking) async {
     if (_userId == null) return;
-    await _firestore.addBooking(_userId!, booking);
+    final userName = authService?.userName ?? '';
+    final userEmail = authService?.userEmail ?? '';
+    final userPhone = authService?.userPhone ?? '';
+    await _firestore.addBooking(_userId!, booking, userName: userName, userEmail: userEmail, userPhone: userPhone);
+    // Mark the booked slot as unavailable for this date
+    await _firestore.markSlotBooked(booking.centerId, booking.timeSlot, booking.date);
   }
 
   Future<void> cancelBooking(String bookingId) async {
     if (_userId == null) return;
     await _firestore.cancelBooking(_userId!, bookingId);
+  }
+
+  Future<void> acceptBooking(String bookingId) async {
+    if (_userId == null) return;
+    await _firestore.acceptBooking(_userId!, bookingId);
+  }
+
+  Future<void> markNotificationRead(String notificationId) async {
+    if (_userId == null) return;
+    await _firestore.markNotificationRead(_userId!, notificationId);
   }
 
   CarWashCenter? getCenterById(String id) {
@@ -184,10 +244,17 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  /// Returns the set of already-booked slot times for a center on a date.
+  Future<Set<String>> getBookedSlots(String centerId, DateTime date) {
+    return _firestore.getBookedSlots(centerId, date);
+  }
+
   @override
   void dispose() {
     _centersSub?.cancel();
     _bookingsSub?.cancel();
+    _favoritesSub?.cancel();
+    _notificationsSub?.cancel();
     super.dispose();
   }
 }

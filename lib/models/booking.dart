@@ -36,4 +36,4 @@ class Booking {
   }
 }
 
-enum BookingStatus { confirmed, completed, cancelled }
+enum BookingStatus { pending, confirmed, completed, cancelled }

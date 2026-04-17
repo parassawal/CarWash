@@ -10,6 +10,11 @@ service cloud.firestore {
       match /reviews/{reviewId} {
         allow read, write: if request.auth != null;
       }
+
+      // Booked slots subcollection (date-keyed availability)
+      match /bookedSlots/{dateKey} {
+        allow read, write: if request.auth != null;
+      }
     }
     
     // Users: can only access their own data
@@ -20,11 +25,23 @@ service cloud.firestore {
       match /bookings/{bookingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Notifications subcollection
+      match /notifications/{notificationId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Allow any authenticated user to write (so admin web can write notifications)
+        allow write: if request.auth != null;
+      }
     }
     
     // Allow collection group queries for bookings (used by Admin Dashboard)
     match /{path=**}/bookings/{bookingId} {
       allow read, write: if request.auth != null;
+    }
+
+    // Allow admin to write notifications to any user
+    match /{path=**}/notifications/{notificationId} {
+      allow write: if request.auth != null;
     }
   }
 }

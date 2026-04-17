@@ -153,7 +153,7 @@ class FirestoreService {
 
   // ---- BOOKINGS ----
 
-  Future<void> addBooking(String userId, Booking booking) async {
+  Future<void> addBooking(String userId, Booking booking, {String userName = '', String userEmail = '', String userPhone = ''}) async {
     await _db
         .collection('users')
         .doc(userId)
@@ -168,7 +168,37 @@ class FirestoreService {
           'service': booking.service,
           'price': booking.price,
           'status': booking.status.name,
+          // Store user details so admin panel can display them
+          'userId': userId,
+          'userName': userName,
+          'userEmail': userEmail,
+          'userPhone': userPhone,
         });
+  }
+
+  /// Mark a time slot on a center as booked (isAvailable = false) for a given date.
+  /// Uses a sub-collection path: centers/{centerId}/bookedSlots/{dateKey}/{slotId}
+  Future<void> markSlotBooked(String centerId, String slotTime, DateTime date) async {
+    final dateKey = '${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
+    await _db
+        .collection('centers')
+        .doc(centerId)
+        .collection('bookedSlots')
+        .doc(dateKey)
+        .set({slotTime: true}, SetOptions(merge: true));
+  }
+
+  /// Fetch booked slot times for a center on a given date.
+  Future<Set<String>> getBookedSlots(String centerId, DateTime date) async {
+    final dateKey = '${date.year}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')}';
+    final doc = await _db
+        .collection('centers')
+        .doc(centerId)
+        .collection('bookedSlots')
+        .doc(dateKey)
+        .get();
+    if (!doc.exists || doc.data() == null) return {};
+    return doc.data()!.keys.toSet();
   }
 
   Stream<List<Booking>> getBookings(String userId) {
@@ -191,8 +221,8 @@ class FirestoreService {
               service: d['service'] ?? '',
               price: (d['price'] ?? 0).toDouble(),
               status: BookingStatus.values.firstWhere(
-                (s) => s.name == (d['status'] ?? 'confirmed'),
-                orElse: () => BookingStatus.confirmed,
+                (s) => s.name == (d['status'] ?? 'pending'),
+                orElse: () => BookingStatus.pending,
               ),
             );
           }).toList();
@@ -206,6 +236,53 @@ class FirestoreService {
         .collection('bookings')
         .doc(bookingId)
         .update({'status': 'cancelled'});
+  }
+
+  /// Called by admin to accept a pending booking → sets status to 'confirmed'
+  /// and writes a notification to the user's notifications subcollection.
+  Future<void> acceptBooking(String userId, String bookingId) async {
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('bookings')
+        .doc(bookingId)
+        .update({'status': 'confirmed'});
+
+    // Write a notification so the user sees an in-app alert
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .add({
+          'type': 'booking_confirmed',
+          'bookingId': bookingId,
+          'message': 'Your booking has been accepted! 🎉',
+          'isRead': false,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+  }
+
+  /// Stream of unread notifications for the user.
+  Stream<List<Map<String, dynamic>>> getNotifications(String userId) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .where('isRead', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => {'id': d.id, ...d.data()})
+            .toList());
+  }
+
+  Future<void> markNotificationRead(String userId, String notificationId) async {
+    await _db
+        .collection('users')
+        .doc(userId)
+        .collection('notifications')
+        .doc(notificationId)
+        .update({'isRead': true});
   }
 
   // ---- REVIEWS ----
@@ -262,5 +339,36 @@ class FirestoreService {
       'rating': double.parse(avgRating.toStringAsFixed(1)),
       'reviewCount': reviewsSnap.docs.length,
     });
+  }
+
+  // ---- FAVORITES ----
+
+  Stream<List<String>> getFavorites(String userId) {
+    return _db
+        .collection('users')
+        .doc(userId)
+        .collection('favorites')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) => doc.id).toList();
+    });
+  }
+
+  Future<void> toggleFavorite(String userId, String centerId, bool isFavorite) async {
+    if (isFavorite) {
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('favorites')
+          .doc(centerId)
+          .set({'timestamp': FieldValue.serverTimestamp()});
+    } else {
+      await _db
+          .collection('users')
+          .doc(userId)
+          .collection('favorites')
+          .doc(centerId)
+          .delete();
+    }
   }
 }

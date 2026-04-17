@@ -21,11 +21,19 @@ class _BookingScreenState extends State<BookingScreen> {
   int _selectedServiceIndex = 0;
   late List<DateTime> _dates;
   bool _isBooking = false;
+  Set<String> _bookedSlots = {};
 
   @override
   void initState() {
     super.initState();
     _dates = List.generate(7, (i) => DateTime.now().add(Duration(days: i)));
+    _loadBookedSlots();
+  }
+
+  Future<void> _loadBookedSlots() async {
+    final provider = Provider.of<AppProvider>(context, listen: false);
+    final booked = await provider.getBookedSlots(widget.center.id, _selectedDate);
+    if (mounted) setState(() => _bookedSlots = booked);
   }
 
   @override
@@ -135,7 +143,14 @@ class _BookingScreenState extends State<BookingScreen> {
                       _selectedDate.day == date.day &&
                       _selectedDate.month == date.month;
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedDate = date),
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = date;
+                        _selectedTimeSlot = null;
+                        _bookedSlots = {};
+                      });
+                      _loadBookedSlots();
+                    },
                     child: Container(
                       width: 60,
                       margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -328,25 +343,27 @@ class _BookingScreenState extends State<BookingScreen> {
         runSpacing: 10,
         children: slots.map((slot) {
           final isSelected = _selectedTimeSlot == slot.time;
+          final isBooked = _bookedSlots.contains(slot.time);
+          final isUnavailable = !slot.isAvailable || isBooked;
           return GestureDetector(
-            onTap: slot.isAvailable
-                ? () => setState(() => _selectedTimeSlot = slot.time)
-                : null,
+            onTap: isUnavailable
+                ? null
+                : () => setState(() => _selectedTimeSlot = slot.time),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.textPrimary
-                    : (slot.isAvailable
-                          ? AppColors.surfaceLight
-                          : AppColors.surface),
+                    : (isUnavailable
+                          ? AppColors.surface
+                          : AppColors.surfaceLight),
                 borderRadius: BorderRadius.circular(10),
                 border: isSelected
                     ? null
                     : Border.all(
-                        color: slot.isAvailable
-                            ? AppColors.border
-                            : Colors.transparent,
+                        color: isUnavailable
+                            ? Colors.transparent
+                            : AppColors.border,
                         width: 0.5,
                       ),
               ),
@@ -355,14 +372,14 @@ class _BookingScreenState extends State<BookingScreen> {
                 style: TextStyle(
                   color: isSelected
                       ? AppColors.background
-                      : (slot.isAvailable
-                            ? AppColors.textPrimary
-                            : AppColors.textHint),
+                      : (isUnavailable
+                            ? AppColors.textHint
+                            : AppColors.textPrimary),
                   fontSize: 13,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                  decoration: slot.isAvailable
-                      ? null
-                      : TextDecoration.lineThrough,
+                  decoration: isUnavailable
+                      ? TextDecoration.lineThrough
+                      : null,
                 ),
               ),
             ),
@@ -401,7 +418,7 @@ class _BookingScreenState extends State<BookingScreen> {
       timeSlot: _selectedTimeSlot!,
       service: service.name,
       price: service.price,
-      status: BookingStatus.confirmed,
+      status: BookingStatus.pending,
     );
 
     await Provider.of<AppProvider>(context, listen: false).addBooking(booking);

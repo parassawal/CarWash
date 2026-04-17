@@ -1,16 +1,20 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthService extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
   bool _googleInitialized = false;
+  String _cachedPhone = '';
 
   User? get currentUser => _auth.currentUser;
   bool get isLoggedIn => _auth.currentUser != null;
   String get userId => _auth.currentUser?.uid ?? '';
   String get userName => _auth.currentUser?.displayName ?? 'User';
   String get userEmail => _auth.currentUser?.email ?? '';
+  String get userPhone => _cachedPhone;
   String get userInitials {
     final name = userName;
     if (name.isEmpty || name == 'User') return 'U';
@@ -26,6 +30,7 @@ class AuthService extends ChangeNotifier {
     required String email,
     required String password,
     required String name,
+    String phone = '',
   }) async {
     try {
       final result = await _auth.createUserWithEmailAndPassword(
@@ -34,6 +39,8 @@ class AuthService extends ChangeNotifier {
       );
       await result.user?.updateDisplayName(name);
       await result.user?.reload();
+      _cachedPhone = phone;
+      await _saveUserProfile(result.user!.uid, name: name, email: email, phone: phone);
       notifyListeners();
       return null;
     } on FirebaseAuthException catch (e) {
@@ -49,7 +56,9 @@ class AuthService extends ChangeNotifier {
     required String password,
   }) async {
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final result = await _auth.signInWithEmailAndPassword(email: email, password: password);
+      // Load cached phone from profile
+      await _loadUserPhone(result.user!.uid);
       notifyListeners();
       return null;
     } on FirebaseAuthException catch (e) {
@@ -83,7 +92,10 @@ class AuthService extends ChangeNotifier {
       }
 
       final credential = GoogleAuthProvider.credential(idToken: idToken);
-      await _auth.signInWithCredential(credential);
+      final result = await _auth.signInWithCredential(credential);
+      final user = result.user!;
+      await _saveUserProfile(user.uid, name: user.displayName ?? '', email: user.email ?? '', phone: user.phoneNumber ?? '');
+      await _loadUserPhone(user.uid);
       notifyListeners();
       return null;
     } on GoogleSignInException catch (e) {
@@ -103,8 +115,27 @@ class AuthService extends ChangeNotifier {
         await GoogleSignIn.instance.signOut();
       }
     } catch (_) {}
+    _cachedPhone = '';
     await _auth.signOut();
     notifyListeners();
+  }
+
+  Future<void> _saveUserProfile(String uid, {required String name, required String email, required String phone}) async {
+    await _db.collection('users').doc(uid).set({
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> _loadUserPhone(String uid) async {
+    try {
+      final doc = await _db.collection('users').doc(uid).get();
+      if (doc.exists) {
+        _cachedPhone = doc.data()?['phone'] ?? '';
+      }
+    } catch (_) {}
   }
 
   String _getErrorMessage(String code) {

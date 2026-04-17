@@ -3,6 +3,9 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../providers/app_provider.dart';
 import '../theme/app_colors.dart';
+import 'favorites_screen.dart';
+import 'offers_screen.dart';
+import 'payment_options_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final VoidCallback? onNavigateToBookings;
@@ -66,6 +69,26 @@ class ProfileScreen extends StatelessWidget {
                               fontSize: 13,
                             ),
                           ),
+                          if (auth.userPhone.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.phone_outlined,
+                                  size: 12,
+                                  color: AppColors.textHint,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  auth.userPhone,
+                                  style: const TextStyle(
+                                    color: AppColors.textHint,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -160,7 +183,12 @@ class ProfileScreen extends StatelessWidget {
                   'Favorites',
                   AppColors.error,
                   () {
-                    _showComingSoon(context, 'Favorites');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const FavoritesScreen(),
+                      ),
+                    );
                   },
                 ),
                 _MenuAction(
@@ -168,11 +196,21 @@ class ProfileScreen extends StatelessWidget {
                   'Offers',
                   AppColors.success,
                   () {
-                    _showComingSoon(context, 'Offers');
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const OffersScreen(),
+                      ),
+                    );
                   },
                 ),
                 _MenuAction(Icons.payment, 'Payment', AppColors.info, () {
-                  _showComingSoon(context, 'Payment');
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const PaymentOptionsScreen(),
+                    ),
+                  );
                 }),
               ]),
 
@@ -180,14 +218,6 @@ class ProfileScreen extends StatelessWidget {
 
               // Menu Group 2
               _menuGroupWithActions(context, [
-                _MenuAction(
-                  Icons.notifications_outlined,
-                  'Notifications',
-                  AppColors.warning,
-                  () {
-                    _showComingSoon(context, 'Notifications');
-                  },
-                ),
                 _MenuAction(
                   Icons.help_outline,
                   'Help & Support',

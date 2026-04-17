@@ -35,6 +35,11 @@ body {
 /* Utilities */
 .hidden { display: none !important; }
 .w-100 { width: 100%; }
+.hint-text { color: var(--secondary-text); font-size: 13px; padding: 16px; }
+
+/* Tab content visibility */
+.tab-content { display: block; }
+.tab-content.hidden { display: none !important; }
 
 /* Glassmorphism Panels */
 .glass-panel {
@@ -380,7 +385,13 @@ input::placeholder, textarea::placeholder {
 
 @keyframes spin { 100% { transform: rotate(360deg); } }
 
-/* Booking Card */
+/* Booking Card styles are defined below */
+
+.b-details h4 { font-size: 16px; margin-bottom: 4px; }
+.b-details p { color: var(--secondary-text); font-size: 13px; margin-bottom: 2px; }
+.b-price { font-size: 18px; font-weight: 700; color: var(--accent-color); white-space: nowrap; }
+
+/* Booking card layout fix for user info block */
 .booking-card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -389,9 +400,12 @@ input::placeholder, textarea::placeholder {
   margin-bottom: 16px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 16px;
 }
 
-.b-details h4 { font-size: 16px; margin-bottom: 4px; }
-.b-details p { color: var(--secondary-text); font-size: 13px; }
-.b-price { font-size: 18px; font-weight: 700; color: var(--accent-color); }
+/* Bookings list */
+.bookings-list {
+  display: flex;
+  flex-direction: column;
+}

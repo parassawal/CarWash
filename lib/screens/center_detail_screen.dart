@@ -20,6 +20,22 @@ class CenterDetailScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _openMap() async {
+    // geo: URI opens native maps app directly on Android (no browser needed)
+    final geoUri = Uri.parse(
+      'geo:${center.latitude},${center.longitude}?q=${center.latitude},${center.longitude}(${Uri.encodeComponent(center.name)})',
+    );
+    if (await canLaunchUrl(geoUri)) {
+      await launchUrl(geoUri);
+      return;
+    }
+    // Fallback: open Google Maps in browser
+    final webUrl = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${center.latitude},${center.longitude}',
+    );
+    await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<AppProvider>(context);
@@ -202,7 +218,12 @@ class CenterDetailScreen extends StatelessWidget {
                       const SizedBox(height: 14),
                       Container(height: 0.5, color: AppColors.divider),
                       const SizedBox(height: 14),
-                      _infoRow(Icons.location_on_outlined, center.address),
+                      _infoRow(
+                        Icons.location_on_outlined, 
+                        center.address,
+                        onTap: _openMap,
+                        isLink: true,
+                      ),
                       const SizedBox(height: 10),
                       _infoRow(
                         Icons.access_time,
@@ -444,22 +465,34 @@ class CenterDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoRow(IconData icon, String text) {
-    return Row(
+  Widget _infoRow(IconData icon, String text, {VoidCallback? onTap, bool isLink = false}) {
+    Widget content = Row(
       children: [
-        Icon(icon, size: 16, color: AppColors.textHint),
+        Icon(icon, size: 16, color: isLink ? AppColors.accent : AppColors.textHint),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: isLink ? AppColors.accent : AppColors.textSecondary,
               fontSize: 13,
+              decoration: isLink ? TextDecoration.underline : TextDecoration.none,
             ),
           ),
         ),
+        if (isLink)
+          const Icon(Icons.open_in_new, size: 14, color: AppColors.accent),
       ],
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: content,
+      );
+    }
+
+    return content;
   }
 
   Widget _reviewCard(Review r) {

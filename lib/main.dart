@@ -81,6 +81,8 @@ class _AuthGateState extends State<AuthGate> {
         if (snapshot.hasData && snapshot.data != null) {
           // User is logged in — init and show main app
           final appProvider = Provider.of<AppProvider>(context, listen: false);
+          final authSvc = Provider.of<AuthService>(context, listen: false);
+          appProvider.authService = authSvc;
           appProvider.init(snapshot.data!.uid);
           appProvider.seedData();
           return const MainNavigation();

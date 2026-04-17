@@ -1,7 +1,7 @@
-import './style.css'
+// CSS is loaded via <link> in index.html
 import { auth, db } from './firebase.js'
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut } from "firebase/auth";
-import { collection, addDoc, getDocs, updateDoc, query, where, orderBy, serverTimestamp, collectionGroup } from "firebase/firestore";
+import { collection, addDoc, getDocs, getDoc, updateDoc, doc, query, where, orderBy, serverTimestamp, collectionGroup } from "firebase/firestore";
 
 // UI Elements
 const authScreen = document.getElementById('auth-screen');
@@ -198,7 +198,7 @@ async function loadBookings() {
     }
 
     bookingsList.innerHTML = '';
-    bookingsSnap.forEach((docSnap) => {
+    for (const docSnap of bookingsSnap.docs) {
       const data = docSnap.data();
       // data.date might be a string (ISO) or Firestore Timestamp depending on Flutter upload
       const dateStr = data.date && data.date.toDate ? data.date.toDate().toLocaleDateString() : (data.date || 'Unknown Date');
@@ -208,42 +208,101 @@ async function loadBookings() {
 
       const statusLabel = data.status === 'completed'
         ? '<span style="color: #4ade80; font-size: 12px; font-weight: bold; border: 1px solid #4ade80; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Completed</span>'
-        : '<span style="color: #fbbf24; font-size: 12px; font-weight: bold; border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Pending</span>';
+        : data.status === 'cancelled'
+          ? '<span style="color: #f87171; font-size: 12px; font-weight: bold; border: 1px solid #f87171; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Cancelled</span>'
+          : data.status === 'confirmed'
+            ? '<span style="color: #60a5fa; font-size: 12px; font-weight: bold; border: 1px solid #60a5fa; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Confirmed</span>'
+            : '<span style="color: #fbbf24; font-size: 12px; font-weight: bold; border: 1px solid #fbbf24; padding: 2px 6px; border-radius: 4px; margin-left: 8px;">Pending</span>';
+
+      // User info — stored directly on booking doc
+      const userId = data.userId || docSnap.ref.parent.parent?.id || '';
+      let userName = data.userName || 'Unknown User';
+      let userEmail = data.userEmail || '';
+      let userPhone = data.userPhone || '';
+
+      // If phone is missing (older booking), fetch from user profile
+      if ((!userPhone || userName === 'Unknown User') && userId) {
+        try {
+          const profileSnap = await getDoc(doc(db, 'users', userId));
+          if (profileSnap.exists()) {
+            const profile = profileSnap.data();
+            if (!userPhone) userPhone = profile.phone || '';
+            if (userName === 'Unknown User') userName = profile.name || userName;
+            if (!userEmail) userEmail = profile.email || '';
+          }
+        } catch (_) {}
+      }
 
       div.innerHTML = `
         <div class="b-details" style="flex: 1;">
-          <h4 style="display: flex; align-items: center;">${data.service} ${statusLabel}</h4>
+          <h4 style="display: flex; align-items: center; flex-wrap: wrap; gap: 4px;">${data.service} ${statusLabel}</h4>
           <p>🚗 ${data.centerName}</p>
           <p>📅 ${dateStr} at ${data.timeSlot}</p>
+          <div style="margin-top:8px; padding:10px 12px; background:rgba(255,255,255,0.04); border-radius:8px; border: 1px solid rgba(255,255,255,0.06);">
+            <p style="margin:0 0 4px; font-size:13px; color:#e2e8f0; font-weight:600;">👤 ${userName}</p>
+            ${userPhone ? `<p style="margin:0 0 3px; font-size:12px; color:#94a3b8;">📞 <a href="tel:${userPhone}" style="color:#60a5fa; text-decoration:none;">${userPhone}</a></p>` : ''}
+            ${userEmail ? `<p style="margin:0; font-size:12px; color:#94a3b8;">✉️ <a href="mailto:${userEmail}" style="color:#60a5fa; text-decoration:none;">${userEmail}</a></p>` : ''}
+          </div>
         </div>
-        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; min-width: 90px;">
           <div class="b-price">₹${data.price}</div>
         </div>
       `;
 
-      if (data.status !== 'completed' && data.status !== 'cancelled') {
-        const btn = document.createElement('button');
-        btn.className = 'btn primary-btn';
-        btn.style.padding = '4px 12px';
-        btn.style.fontSize = '12px';
-        btn.innerText = 'Mark Completed';
-        btn.onclick = async () => {
-          btn.innerText = '...';
-          btn.disabled = true;
+      const actionDiv = div.querySelector('div[style*="min-width"]');
+
+      // Accept button — for pending bookings
+      if (!data.status || data.status === 'pending') {
+        const acceptBtn = document.createElement('button');
+        acceptBtn.style.cssText = 'padding:6px 14px; font-size:12px; background:#22c55e; border:none; color:#000; font-weight:700; border-radius:6px; cursor:pointer; margin-top:4px; width:100%;';
+        acceptBtn.innerText = '✓ Accept';
+        acceptBtn.onclick = async () => {
+          acceptBtn.innerText = '...';
+          acceptBtn.disabled = true;
           try {
-            await updateDoc(docSnap.ref, { status: 'completed' });
-            loadBookings(); // Reload to reflect changes
+            const bookingUserId = data.userId || docSnap.ref.parent.parent?.id;
+            if (!bookingUserId) throw new Error('Cannot determine user ID');
+            const bookingRef = doc(db, 'users', bookingUserId, 'bookings', docSnap.id);
+            await updateDoc(bookingRef, { status: 'confirmed' });
+            await addDoc(collection(db, 'users', bookingUserId, 'notifications'), {
+              type: 'booking_confirmed',
+              bookingId: docSnap.id,
+              message: 'Your booking has been accepted! 🎉',
+              isRead: false,
+              createdAt: new Date(),
+            });
+            loadBookings();
           } catch (e) {
-            alert('Failed to update status: ' + e.message);
-            btn.innerText = 'Mark Completed';
-            btn.disabled = false;
+            alert('Failed to accept: ' + e.message);
+            acceptBtn.innerText = '✓ Accept';
+            acceptBtn.disabled = false;
           }
         };
-        div.querySelector('div[style*="align-items: flex-end"]').appendChild(btn);
+        actionDiv.appendChild(acceptBtn);
+      }
+
+      // Mark Completed button — for confirmed bookings only
+      if (data.status === 'confirmed') {
+        const completeBtn = document.createElement('button');
+        completeBtn.style.cssText = 'padding:6px 14px; font-size:12px; background:#3b82f6; border:none; color:#fff; font-weight:600; border-radius:6px; cursor:pointer; margin-top:4px; width:100%;';
+        completeBtn.innerText = '✓ Complete';
+        completeBtn.onclick = async () => {
+          completeBtn.innerText = '...';
+          completeBtn.disabled = true;
+          try {
+            await updateDoc(docSnap.ref, { status: 'completed' });
+            loadBookings();
+          } catch (e) {
+            alert('Failed: ' + e.message);
+            completeBtn.innerText = '✓ Complete';
+            completeBtn.disabled = false;
+          }
+        };
+        actionDiv.appendChild(completeBtn);
       }
 
       bookingsList.appendChild(div);
-    });
+    }
 
   } catch (err) {
     console.error("Error loading bookings:", err);

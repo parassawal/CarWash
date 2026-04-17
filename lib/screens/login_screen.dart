@@ -14,6 +14,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _isLogin = true;
   bool _isLoading = false;
@@ -26,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -179,7 +181,32 @@ class _LoginScreenState extends State<LoginScreen> {
                         v == null || v.isEmpty ? 'Name is required' : null,
                   ),
                   const SizedBox(height: 16),
+                  _buildLabel('Phone Number'),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: _phoneController,
+                    keyboardType: TextInputType.phone,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Enter your phone number',
+                      prefixIcon: Icon(
+                        Icons.phone_outlined,
+                        color: AppColors.textHint,
+                        size: 20,
+                      ),
+                    ),
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Phone is required';
+                      if (v.length < 10) return 'Enter a valid phone number';
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
                 ],
+
 
                 // Email
                 _buildLabel('Email'),
@@ -389,6 +416,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailController.text.trim(),
         password: _passwordController.text,
         name: _nameController.text.trim(),
+        phone: _phoneController.text.trim(),
       );
     }
 
